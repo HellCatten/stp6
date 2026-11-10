@@ -1,25 +1,68 @@
 services:
-  worker-node-1:
-    image: alpine:latest
-    container_name: c3-worker
-    command: tail -f /dev/null
+  kafka-1:
+    image: apache/kafka:3.8.0
+    container_name: c3-kafka-1
+    user: root
+    environment:
+      KAFKA_OPTS: '-Djava.security.auth.login.config=/etc/kafka/kafka_jaas.conf'
+    ports:
+      - "9094:9094"
+    volumes:
+      - ./config/kafka_jaas.conf:/etc/kafka/kafka_jaas.conf:ro
+      - ./scripts:/scripts:ro
     networks:
-      - worker-net
+      - kafka-net
+    entrypoint:
+      - sh
+      - -c
+      - |
+        tr -d '\r' < /scripts/entrypoint.sh > /tmp/run.sh
+        chmod +x /tmp/run.sh
+        exec /tmp/run.sh 1 init_producer
 
-  worker-node-2:
-    image: alpine:latest
-    container_name: c3-worker-2
-    command: tail -f /dev/null
+  kafka-2:
+    image: apache/kafka:3.8.0
+    container_name: c3-kafka-2
+    user: root
+    environment:
+      KAFKA_OPTS: '-Djava.security.auth.login.config=/etc/kafka/kafka_jaas.conf'
+    ports:
+      - "9095:9094"
+    volumes:
+      - ./config/kafka_jaas.conf:/etc/kafka/kafka_jaas.conf:ro
+      - ./scripts:/scripts:ro
     networks:
-      - worker-net
-  
-  wokrer-node-3:
-    image: alpine:latest
-    container_name: c3-worker-3
-    command: tail -f /dev/null
+      - kafka-net
+    entrypoint:
+      - sh
+      - -c
+      - |
+        tr -d '\r' < /scripts/entrypoint.sh > /tmp/run.sh
+        chmod +x /tmp/run.sh
+        exec /tmp/run.sh 2 producer
+
+  kafka-3:
+    image: apache/kafka:3.8.0
+    container_name: c3-kafka-3
+    user: root
+    environment:
+      KAFKA_OPTS: '-Djava.security.auth.login.config=/etc/kafka/kafka_jaas.conf'
+    ports:
+      - "9096:9094"
+    volumes:
+      - ./config/kafka_jaas.conf:/etc/kafka/kafka_jaas.conf:ro
+      - ./scripts:/scripts:ro
+      - ./snapshots:/snapshots
     networks:
-      - worker-net
+      - kafka-net
+    entrypoint:
+      - sh
+      - -c
+      - |
+        tr -d '\r' < /scripts/entrypoint.sh > /tmp/run.sh
+        chmod +x /tmp/run.sh
+        exec /tmp/run.sh 3 snapshot
 
 networks:
-  worker-net:
+  kafka-net:
     driver: bridge

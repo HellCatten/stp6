@@ -1,22 +1,53 @@
 services:
-  broker-node-1:
-    image: redis:alpine
-    container_name: c2_broker-1
+  mongo-node-1:
+    image: mongo:7.0
+    container_name: c2-mongo-1
+    volumes:
+      - ./scripts:/scripts:ro
+    command: >
+      sh -c "
+        echo 'supersecretkeyforcluster12345' > /tmp/mongo.key &&
+        chmod 400 /tmp/mongo.key &&
+        mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongo.key &
+        echo 'Ожидание старта mongod...';
+        until mongosh localhost:27017 --eval 'db.adminCommand(\"ping\")' > /dev/null 2>&1; do sleep 2; done;
+        echo 'Запуск инициализации через localhost...';
+        mongosh localhost:27017 /scripts/init-cluster.js;
+        wait
+      "
+    ports:
+      - "27017:27017"
     networks:
-      - broker-net
+      - nosql-net
 
-  broker-node-2:
-    image: redis:alpine
-    container_name: c2_broker-2
+  mongo-node-2:
+    image: mongo:7.0
+    container_name: c2-mongo-2
+    command: >
+      sh -c "
+        echo 'supersecretkeyforcluster12345' > /tmp/mongo.key &&
+        chmod 400 /tmp/mongo.key &&
+        exec mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongo.key
+      "
+    ports:
+      - "27018:27017"
     networks:
-      - broker-net
+      - nosql-net
 
-  broker-node-3:
-    image: redis:alpine
-    container_name: c2_broker-3
+  mongo-node-3:
+    image: mongo:7.0
+    container_name: c2-mongo-3
+    command: >
+      sh -c "
+        echo 'supersecretkeyforcluster12345' > /tmp/mongo.key &&
+        chmod 400 /tmp/mongo.key &&
+        exec mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongo.key
+      "
+    ports:
+      - "27019:27017"
     networks:
-      - broker-net
+      - nosql-net
 
 networks:
-  broker-net:
+  nosql-net:
     driver: bridge

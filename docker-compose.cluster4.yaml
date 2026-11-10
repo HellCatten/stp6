@@ -1,22 +1,56 @@
 services:
-  gateway-node-1:
-    image: nginx:alpine
-    container_name: c4-gateway-1
+  elasticsearch:
+    image: elasticsearch:8.15.0
+    container_name: c4-elasticsearch
+    environment:
+      - node.name=c4-elasticsearch
+      - cluster.name=elk-cluster
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
     networks:
-      - gateway-net
+      - elk-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  gateway-node-2:
-    image: nginx:alpine
-    container_name: c4-gateway-2
+  logstash:
+    image: logstash:8.15.0
+    container_name: c4-logstash
+    environment:
+      - "LS_JAVA_OPTS=-Xms256m -Xmx256m"
+      - ELASTICSEARCH_HOSTS=http://c4-elasticsearch:9200
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+      - "9600:9600"
+    volumes:
+      - ./logstash/config/logstash.yaml:/usr/share/logstash/config/logstash.yaml:ro
+      - ./logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
     networks:
-      - gateway-net
+      - elk-net
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
 
-  gateway-node-3:
-    image: nginx:alpine
-    container_name: c4-gateway-3
+  kibana:
+    image: kibana:8.15.0
+    container_name: c4-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://c4-elasticsearch:9200
+      - XPACK_SECURITY_ENABLED=false
+    ports:
+      - "5601:5601"
     networks:
-      - gateway-net
-    
+      - elk-net
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
 networks:
-  gateway-net:
+  elk-net:
     driver: bridge
